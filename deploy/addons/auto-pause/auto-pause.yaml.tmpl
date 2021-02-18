@@ -37,7 +37,7 @@ spec:
           ports:
             - name: https
               containerPort: 6443
-              hostPort: 32443
+              hostPort: {{.NetworkInfo.AutoPauseProxyPort}}
               protocol: TCP
           volumeMounts:
           - name: ha-cfg

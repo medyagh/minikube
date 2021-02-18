@@ -19,6 +19,7 @@ package assets
 import (
 	"fmt"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -39,6 +40,13 @@ type Addon struct {
 
 	// Registries currently only shows the default registry of images
 	Registries map[string]string
+}
+
+// NetworkInfo is network relevant info
+type NetworkInfo struct {
+	CPNodeIP           string
+	CPNodePort         int
+	AutoPauseProxyPort int
 }
 
 // NewAddon creates a new Addon
@@ -625,7 +633,7 @@ var Addons = map[string]*Addon{
 }
 
 // GenerateTemplateData generates template data for template assets
-func GenerateTemplateData(addon *Addon, cfg config.KubernetesConfig) interface{} {
+func GenerateTemplateData(addon *Addon, cfg config.KubernetesConfig, networkInfo NetworkInfo) interface{} {
 
 	a := runtime.GOARCH
 	// Some legacy docker images still need the -arch suffix
@@ -644,6 +652,7 @@ func GenerateTemplateData(addon *Addon, cfg config.KubernetesConfig) interface{}
 		Images              map[string]string
 		Registries          map[string]string
 		CustomRegistries    map[string]string
+		NetworkInfo         map[string]string
 	}{
 		Arch:                a,
 		ExoticArch:          ea,
@@ -654,7 +663,14 @@ func GenerateTemplateData(addon *Addon, cfg config.KubernetesConfig) interface{}
 		Images:              addon.Images,
 		Registries:          addon.Registries,
 		CustomRegistries:    make(map[string]string),
+		NetworkInfo:         make(map[string]string),
 	}
+
+	// Network info for generating template
+	opts.NetworkInfo["CPNodeIP"] = networkInfo.CPNodeIP
+	opts.NetworkInfo["CPNodePort"] = strconv.Itoa(networkInfo.CPNodePort)
+	opts.NetworkInfo["AutoPauseProxyPort"] = strconv.Itoa(networkInfo.AutoPauseProxyPort)
+
 	if opts.ImageRepository != "" && !strings.HasSuffix(opts.ImageRepository, "/") {
 		opts.ImageRepository += "/"
 	}
