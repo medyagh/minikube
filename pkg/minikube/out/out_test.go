@@ -186,24 +186,32 @@ func TestCommand(t *testing.T) {
 		},
 	}
 
-	pflag.String("profile", "", "")
+        for _, tt := range testCases {
+                oldArgs := os.Args
+                oldCommandLine := pflag.CommandLine
+                os.Args = tt.args
 
-	for _, tt := range testCases {
-		oldArgs := os.Args
-		defer func() { os.Args = oldArgs }()
-		os.Args = tt.args
-		pflag.Parse()
-		got, err := command()
-		if err == nil && tt.shouldError {
-			t.Errorf("os.Args = %s; command() did not fail but was expected to", tt.args)
-		}
-		if err != nil && !tt.shouldError {
-			t.Errorf("os.Args = %s; command() failed with error = %v", tt.args, err)
-		}
-		if got != tt.want {
-			t.Errorf("os.Args = %s; command() = %q; wanted %q", tt.args, got, tt.want)
-		}
-	}
+                // Each test case requires a fresh flag set to avoid leftover args
+                pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
+                pflag.String("profile", "", "")
+                if err := pflag.CommandLine.Parse(os.Args[1:]); err != nil {
+                        t.Fatalf("flag parse failed: %v", err)
+                }
+
+                got, err := command()
+                if err == nil && tt.shouldError {
+                        t.Errorf("os.Args = %s; command() did not fail but was expected to", tt.args)
+                }
+                if err != nil && !tt.shouldError {
+                        t.Errorf("os.Args = %s; command() failed with error = %v", tt.args, err)
+                }
+                if got != tt.want {
+                        t.Errorf("os.Args = %s; command() = %q; wanted %q", tt.args, got, tt.want)
+                }
+
+                os.Args = oldArgs
+                pflag.CommandLine = oldCommandLine
+        }
 }
 
 func TestDisplayGitHubIssueMessage(t *testing.T) {
