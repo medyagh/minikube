@@ -40,8 +40,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/sajari/fuzzy"
 	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/v3/cpu"
+	"github.comcom/shirou/gopsutil/v3/cpu"
 	gopshost "github.com/shirou/gopsutil/v3/host"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -704,6 +705,37 @@ func kubectlVersion(path string) (string, error) {
 	return cv.ClientVersion.GitVersion, nil
 }
 
+func handleSpecifiedDriver(d string) {
+	allDrivers := allDriverNames()
+	if !contains(allDrivers, d) {
+		model := fuzzy.NewModel()
+		model.SetThreshold(1)
+		for _, drv := range allDrivers {
+			model.Add(drv)
+		}
+		suggestions := model.Suggestions(d, true)
+		if len(suggestions) > 0 {
+			exit.Message(reason.DrvNotFound, "The driver '{{.driver}}' does not exist. Did you mean: '{{.suggestion}}'?", out.V{"driver": d, "suggestion": suggestions[0]})
+		} else {
+			exit.Message(reason.DrvNotFound, "The driver '{{.driver}}' does not exist.", out.V{"driver": d})
+		}
+	}
+
+	if !driver.Supported(d) {
+		exit.Message(reason.DrvUnsupportedOS, "The driver '{{.driver}}' is not supported on {{.os}}/{{.arch}}", out.V{"driver": d, "os": runtime.GOOS, "arch": runtime.GOARCH})
+	}
+}
+
+// allDriverNames returns a list of all drivers, supported or not
+func allDriverNames() []string {
+	var names []string
+	for _, d := range registry.List() {
+		names = append(names, d.Name)
+		names = append(names, d.Alias...)
+	}
+	return names
+}
+
 // returns (current_driver, suggested_drivers, "true, if the driver is set by command line arg or in the config file")
 func selectDriver(existing *config.ClusterConfig) (registry.DriverState, []registry.DriverState, bool) {
 	// Technically unrelated, but important to perform before detection
@@ -729,20 +761,16 @@ func selectDriver(existing *config.ClusterConfig) (registry.DriverState, []regis
 			`
 			out.WarningT(warning, out.V{"driver": d, "vmd": vmd})
 		}
+		handleSpecifiedDriver(d)
 		ds := driver.Status(d)
-		if ds.Name == "" {
-			exit.Message(reason.DrvUnsupportedOS, "The driver '{{.driver}}' is not supported on {{.os}}/{{.arch}}", out.V{"driver": d, "os": runtime.GOOS, "arch": runtime.GOARCH})
-		}
 		out.Step(style.Sparkle, `Using the {{.driver}} driver based on user configuration`, out.V{"driver": ds.String()})
 		return ds, nil, true
 	}
 
 	// Fallback to old driver parameter
 	if d := viper.GetString("vm-driver"); d != "" {
-		ds := driver.Status(viper.GetString("vm-driver"))
-		if ds.Name == "" {
-			exit.Message(reason.DrvUnsupportedOS, "The driver '{{.driver}}' is not supported on {{.os}}/{{.arch}}", out.V{"driver": d, "os": runtime.GOOS, "arch": runtime.GOARCH})
-		}
+		handleSpecifiedDriver(d)
+		ds := driver.Status(d)
 		out.Step(style.Sparkle, `Using the {{.driver}} driver based on user configuration`, out.V{"driver": ds.String()})
 		return ds, nil, true
 	}
