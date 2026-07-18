@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Install bom
-        uses: kubernetes-sigs/release-actions/setup-bom@8753ea6bdadb814d779c6ec34eaca689dbfb492b # main
+        uses: kubernetes-sigs/release-actions/setup-bom@c130b4494862d330a1aa4de320076c666d0708da # main
       - name: Generage SBOM
         run: |
           bom generate -o minikube_${{github.ref_name}}_sbom.spdx \
